@@ -674,7 +674,7 @@ public:
         // sign-- the product should be negative if entering the shape, 
         // positive if leaving. If entering shape, you must subtract,
         // if leaving you must add
-        float sign = V.dot(N) < 0 ? -1 : 1;
+        float sign = V.dot(N) > 0 ? -1 : 1;
 
         if ( ( hit.material != NULL) && 
              ( (dynamic_cast<Metal*>(hit.material ) ) or 
@@ -704,7 +704,7 @@ public:
             printf("%f\n", sign);
 
             // ray direction
-            vec3 raydir = (N_perp*sin_beta + -N*cos_beta).normalize();
+            vec3 raydir = -(N_perp*sin_beta + N*cos_beta).normalize();
             // add or subtract a very small amount
             vec3 pos = hit.position + N*epsilon*sign;
 
@@ -713,7 +713,10 @@ public:
             // make the ray
             Ray refrRay = Ray(pos, raydir);
             // add the contribution
-            color += hit.material->refractance*trace(refrRay, depth-1);
+            vec3 contrib = trace(refrRay, depth-1);
+            contrib.print();
+            //color += hit.material->refractance*contrib;
+            color += contrib;
         }
 
         return color;
