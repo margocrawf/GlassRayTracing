@@ -605,7 +605,7 @@ public:
         objects.push_back(q);
         */
 
-        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[3]);
+        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[0]);
         objects.push_back(plane);
 
         Quadric* q1 = new Quadric(materials[1]);
@@ -644,7 +644,7 @@ public:
         return bestHit;
     }
 
-	vec3 trace(const Ray& ray, int depth=15)
+	vec3 trace(const Ray& ray, int depth=10)
 	{
         float epsilon = 0.01;
         if (depth == 0) {
@@ -699,7 +699,7 @@ public:
         V = -V;
         if ((hit.material != NULL) && (dynamic_cast<Glass*>(hit.material))) {
             float mu; // mu1/mu2, mu1 is one youre coming from, mu2 one youre entering
-            if (V.dot(N) < 0) { // entering
+        if (V.dot(N) < 0) { // entering
                 mu = 1.0/hit.material->mu;
             } else {// leaving
                 mu = hit.material->mu;
@@ -741,14 +741,14 @@ public:
             // make the ray
             Ray refrRay = Ray(refrPos, refrDir);
             // add the contribution
-            vec3 contrib = trace(refrRay, depth-1);
+            vec3 refrColor = trace(refrRay, depth-1);
             
             //printf("%f\n", sqrt(-1));
           
-            //color += hit.material->refractance*contrib;
-            color += contrib*transmittance;
-            if (depth < 15) {
-                color = contrib;
+            //color += hit.material->refractance*refrColor;
+            color += refrColor*transmittance;
+            if (depth < 10) {
+                color = refrColor;
             }
         }
 

@@ -12,17 +12,24 @@
 
 class Material
 {
-    vec3 color;
 public:
+    vec3 color;
+    vec3 ks; // diffuse light constant
+    vec3 kd; // diffuse light constant
+    int gamma;
     float mu = 0;
     vec3 reflectance;
-    vec3 refractance;
-    Material(vec3 color) : color(color) {
+    Material(vec3 color) : color(color), kd(color){
     }
 
     virtual vec3 shade(vec3 position, vec3 normal, vec3 viewDir,
-                       vec3 lightDir, vec3 powerDensity) {
-        return getColor(position, normal, viewDir);
+               vec3 lightDir, vec3 powerDensity) {
+        // L = powerDensity . k_s(halfway * n)
+        vec3 kdt = getColor(position, normal, viewDir);
+        vec3 kd_term = (powerDensity * ( kdt * (normal.dot(lightDir))));
+        vec3 halfway = (lightDir + viewDir).normalize();
+        vec3 ks_term = powerDensity * ( ks * pow((halfway.dot(normal)), gamma));
+        return kd_term + ks_term;
     }
 
 	virtual vec3 getColor(
@@ -53,9 +60,9 @@ public:
 
 class Metal: public Material
 {
-    vec3 ks; // diffuse light constant
-    vec3 kd; // diffuse light constant
-    int gamma;
+    //vec3 ks; // diffuse light constant
+    //vec3 kd; // diffuse light constant
+    //int gamma;
 public:
     Metal(vec3 color) : 
         Material(vec3(0.2,0.2,0.2)) {
@@ -63,16 +70,6 @@ public:
         kd = vec3(0.2,0.2,0.2);
         gamma = 6;
         reflectance = vec3(0.9,0.9,0.9);
-    }
-
-    vec3 shade(vec3 position, vec3 normal, vec3 viewDir,
-               vec3 lightDir, vec3 powerDensity) {
-        // halfway = (lightDir + viewDir.normalize()
-        // L = powerDensity . k_s(halfway * n)
-        vec3 kd_term = (powerDensity * ( kd * (normal.dot(lightDir))));
-        vec3 halfway = (lightDir + viewDir).normalize();
-        vec3 ks_term = powerDensity * ( ks * pow((halfway.dot(normal)), gamma));
-        return kd_term + ks_term;
     }
 };
 
@@ -91,20 +88,10 @@ public:
         //ks = vec3(0,0,0);
         //kd = vec3(0,0,0);
         gamma = 6;
-        refractance = vec3(0.9,0.9,0.9);
+        //refractance = vec3(0.9,0.9,0.9);
         reflectance = vec3(0.1,0.1,0.1);
-        //refractance = vec3(0,0,0);
         }
 
-    vec3 shade(vec3 position, vec3 normal, vec3 viewDir,
-               vec3 lightDir, vec3 powerDensity) {
-        // halfway = (lightDir + viewDir.normalize()
-        // L = powerDensity . k_s(halfway * n)
-        vec3 kd_term = (powerDensity * ( kd * (normal.dot(lightDir))));
-        vec3 halfway = (lightDir + viewDir).normalize();
-        vec3 ks_term = powerDensity * ( ks * pow((halfway.dot(normal)), gamma));
-        return kd_term + ks_term;
-    }
 };
 
 class SpecularMaterial: public Material
@@ -119,16 +106,6 @@ public:
         ks = vec3(0.5,0.5,0.5);
         kd = color;
         gamma = 6;
-    }
-
-    vec3 shade(vec3 position, vec3 normal, vec3 viewDir,
-               vec3 lightDir, vec3 powerDensity) {
-        // halfway = (lightDir + viewDir.normalize()
-        // L = powerDensity . k_s(halfway * n)
-        vec3 kd_term = (powerDensity * ( kd * (normal.dot(lightDir))));
-        vec3 halfway = (lightDir + viewDir).normalize();
-        vec3 ks_term = powerDensity * ( ks * pow((halfway.dot(normal)), gamma));
-        return kd_term + ks_term;
     }
 };
 
