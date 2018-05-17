@@ -88,8 +88,8 @@ public:
         mu = 1.46;
         ks = vec3(0.1,0.1,0.1);
         kd = color;
-        //kd = vec3(0,0,0);
         //ks = vec3(0,0,0);
+        //kd = vec3(0,0,0);
         gamma = 6;
         refractance = vec3(0.9,0.9,0.9);
         reflectance = vec3(0.1,0.1,0.1);

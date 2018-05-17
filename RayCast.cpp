@@ -566,14 +566,15 @@ class Scene
 public:
 	Scene()
 	{
-        lightSources.push_back(new DirectionalLight(vec3(1,1,1), 
-                               vec3(0,1,1), vec3(0,1,1)));
+        lightSources.push_back(new DirectionalLight(vec3(.5,.5,.5), 
+                               vec3(0,2,0), vec3(0,2,0)));
         //lightSources.push_back(new PointLight(vec3(10,10,10), 
         //                       vec3(0,0.2,0.35), vec3(0,0.2,0.35)));
 
         materials.push_back(new Metal(vec3(1,0,1)));
         materials.push_back(new Wood());
         materials.push_back(new Glass());
+        materials.push_back(new Ball());
 
         /*
         mat4x4 s[4] = {section_0, section_1, section_2, section_3};
@@ -594,7 +595,7 @@ public:
         */
         Quadric* r = new Quadric(materials[2]);
         r->setQuadric(sphereQ);
-        r->transform(mat4x4::scaling(vec3(.4,.4,.4)) * mat4x4::translation(vec3(-.4,0,0.2)));
+        r->transform(mat4x4::scaling(vec3(.4,.4,.4)) * mat4x4::translation(vec3(-.3,0,0.2)));
         objects.push_back(r);
 
         /*
@@ -604,12 +605,12 @@ public:
         objects.push_back(q);
         */
 
-        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[0]);
+        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[3]);
         objects.push_back(plane);
 
         Quadric* q1 = new Quadric(materials[1]);
         q1->setQuadric(sphereQ);
-        q1->transform(mat4x4::scaling(vec3(.2,.2,.2)) * mat4x4::translation(vec3(0,0,-.3)));
+        q1->transform(mat4x4::scaling(vec3(.3,.3,.3)) * mat4x4::translation(vec3(0,0,-.5)));
         objects.push_back(q1);
 
 	}
@@ -647,7 +648,7 @@ public:
 	{
         float epsilon = 0.01;
         if (depth == 0) {
-            return vec3(0,0,0);
+            return vec3(0.5,0.8,0.9);
         }
 
         Hit hit = firstIntersect(ray);
@@ -659,26 +660,29 @@ public:
         vec3 color = vec3(0,0,0);
         for (int i = 0; i < lightSources.size(); i++) {
             LightSource* l = lightSources[i];
-            color += hit.material->shade(hit.position, hit.normal, -ray.dir, 
-                   l->getLightDirAt(hit.position), l->getPowerDensityAt(hit.position));
             vec3 shadowOrigin = hit.position + hit.normal*epsilon;
             Ray shadowRay = Ray(shadowOrigin, l->getLightDirAt(hit.position));
             Hit rayHit = firstIntersect(shadowRay);
             if (rayHit.t != -1) {
-                return vec3(0,0,0);
+                if (rayHit.t < l->getDistanceFrom(hit.position)) {
+                    continue;
+
+                }
             }
+            color += hit.material->shade(hit.position, hit.normal, -ray.dir, 
+                     l->getLightDirAt(hit.position), l->getPowerDensityAt(hit.position));
         }
         // starting vectors
-        vec3 V = -ray.dir;
+        vec3 V = ray.dir;
+        V = -V.normalize();
         vec3 N = hit.normal;
         // sign-- the product should be negative if entering the shape, 
         // positive if leaving. If entering shape, you must subtract,
         // if leaving you must add
-        float sign = V.dot(N) < 0 ? -1 : 1;
+        //float sign = V.dot(N) < 0 ? -1 : 1;
 
         if ( ( hit.material != NULL) && 
-             ( (dynamic_cast<Metal*>(hit.material ) ) or 
-               ( (dynamic_cast<Glass*>(hit.material)) and (sign<0) ) ) ) {
+              (dynamic_cast<Metal*>(hit.material ) ) ) {
             // the length of the diagonal vector (parallel to normal)
             float diagonal = (2*N.dot(V));
             // the ray direction
@@ -691,14 +695,13 @@ public:
             color += hit.material->reflectance*trace(reflRay, depth-1);
         }
 
+
+        V = -V;
         if ((hit.material != NULL) && (dynamic_cast<Glass*>(hit.material))) {
             float mu; // mu1/mu2, mu1 is one youre coming from, mu2 one youre entering
-            if (sign < 0) {
-                // entering
-                printf("hello?\n");
+            if (V.dot(N) < 0) { // entering
                 mu = 1.0/hit.material->mu;
-            } else {
-                // leaving
+            } else {// leaving
                 mu = hit.material->mu;
                 N = -N;
             }
@@ -706,34 +709,45 @@ public:
             vec3 N_perp = (N*(N.dot(V)) - V).normalize();
             // angles
             float cos_alpha = N.dot(V);
-            float sin_alpha = sqrt(1 - pow(cos_alpha, 2));
+            float sin_alpha = sqrt(1 - pow(cos_alpha,2));
             float sin_beta = sin_alpha / mu;
             float cos_beta = sqrt(1 - pow(sin_beta, 2));
 
-            //printf("%f\n", sign);
+            // reflective and transmittive coefficients
+            float Ro = pow((hit.material->mu-1),2) / pow((hit.material->mu+1),2);
+            float reflectance = Ro + (1-Ro)*(pow(1-cos_alpha, 5));
+            float transmittance = 1 - reflectance;
 
-            /*
-            // ray direction
-            vec3 raydir = (N_perp*sin_beta + N*cos_beta).normalize();
-            */
+            float diagonal = (2*N.dot(V));
+            // reflective ray direction
+            vec3 reflDir = ((N*diagonal) - V).normalize();
+            vec3 reflPos = hit.position + N*epsilon;
+            Ray reflRay = Ray(reflPos, reflDir);
+            vec3 reflColor = trace(reflRay, depth-1);
+            color = reflColor*reflectance;
 
-            if ( (1 - pow(mu,2)*sin_alpha) < 0 ) {
+            if ( 1 - pow(mu,2)*pow(sin_alpha,2) < 0 ) {
                 // total internal refraction, do not pass go do not collect $200
-               return color; 
+               printf("%f, %f \n", reflectance, 1-pow(mu,2)*pow(sin_alpha,2) );
+               return reflColor; 
             }
-            vec3 raydir = (V*mu) + N*( (mu*N.dot(V)) - sqrt(1 - pow(mu, 2)*sin_alpha) );
-            // add or subtract a very small amount
-            vec3 pos = hit.position + N*epsilon*sign;
 
-            //pos.print();
-           
+            vec3 refrDir = ( (V*mu) + N*( (mu*N.dot(V)) - sqrt(1 - pow(mu, 2)*sin_alpha) ) );
+
+            // refractive ray direction
+            //vec3 refrDir = (N_perp*sin_beta + N*cos_beta).normalize();
+            // add or subtract a very small amount
+            vec3 refrPos = hit.position - N*epsilon;
             // make the ray
-            Ray refrRay = Ray(pos, raydir);
+            Ray refrRay = Ray(refrPos, refrDir);
             // add the contribution
             vec3 contrib = trace(refrRay, depth-1);
-            contrib.print();
+            
+            //printf("%f\n", sqrt(-1));
+          
             //color += hit.material->refractance*contrib;
-            color += contrib;
+            color += contrib*transmittance;
+            //color = contrib;
         }
 
         return color;
