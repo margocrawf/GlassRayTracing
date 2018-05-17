@@ -644,7 +644,7 @@ public:
         return bestHit;
     }
 
-	vec3 trace(const Ray& ray, int depth=5)
+	vec3 trace(const Ray& ray, int depth=15)
 	{
         float epsilon = 0.01;
         if (depth == 0) {
@@ -747,7 +747,9 @@ public:
           
             //color += hit.material->refractance*contrib;
             color += contrib*transmittance;
-            //color = contrib;
+            if (depth < 15) {
+                color = contrib;
+            }
         }
 
         return color;
