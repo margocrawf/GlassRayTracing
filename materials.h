@@ -79,11 +79,30 @@ public:
 
 class Glass: public Material
 {
+    vec3 ks; // diffuse light constant
+    vec3 kd; // diffuse light constant
+    int gamma;
 public:
-    float mu = 1.46;
-    Glass(vec3 color) : 
+    Glass(vec3 color = vec3(0.6,0.8,0.8)) : 
         Material(color) {
+        mu = 1.46;
+        ks = vec3(0.1,0.1,0.1);
+        kd = color;
+        //kd = vec3(0,0,0);
+        gamma = 6;
+        refractance = vec3(0.9,0.9,0.9);
+        reflectance = vec3(0.1,0.1,0.1);
         }
+
+    vec3 shade(vec3 position, vec3 normal, vec3 viewDir,
+               vec3 lightDir, vec3 powerDensity) {
+        // halfway = (lightDir + viewDir.normalize()
+        // L = powerDensity . k_s(halfway * n)
+        vec3 kd_term = (powerDensity * ( kd * (normal.dot(lightDir))));
+        vec3 halfway = (lightDir + viewDir).normalize();
+        vec3 ks_term = powerDensity * ( ks * pow((halfway.dot(normal)), gamma));
+        return kd_term + ks_term;
+    }
 };
 
 class SpecularMaterial: public Material
@@ -181,8 +200,8 @@ public:
 
     vec3 shade(vec3 position, vec3 normal, vec3 viewDir,
                        vec3 lightDir, vec3 powerDensity) {
-        //return getColor(position, normal, viewDir);
-        return normal;
+        return getColor(position, normal, viewDir);
+        //return normal;
     }
 
 	vec3 getColor(

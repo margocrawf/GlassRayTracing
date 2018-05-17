@@ -573,6 +573,7 @@ public:
 
         materials.push_back(new Metal(vec3(1,0,1)));
         materials.push_back(new Wood());
+        materials.push_back(new Glass());
 
         /*
         mat4x4 s[4] = {section_0, section_1, section_2, section_3};
@@ -584,12 +585,16 @@ public:
         objects.push_back(r);
         */
 
+        /*
         mat4x4 s[4] = {sphereQ, sphereQ};
         std::vector<mat4x4> shapes(s, s+2);
         mat4x4 c[4] = {clip_0, clip_1};
         std::vector<mat4x4> clips(c, c+2);
-        RevolutionQuadric* r = new RevolutionQuadric(materials[0], shapes, clips);
-        r->transform(mat4x4::scaling(vec3(.2,.2,.2)) * mat4x4::translation(vec3(-0.5,0,0)));
+        RevolutionQuadric* r = new RevolutionQuadric(materials[2], shapes, clips);
+        */
+        Quadric* r = new Quadric(materials[2]);
+        r->setQuadric(sphereQ);
+        r->transform(mat4x4::scaling(vec3(.4,.4,.4)) * mat4x4::translation(vec3(-.1,0,0.2)));
         objects.push_back(r);
 
         /*
@@ -603,9 +608,8 @@ public:
         objects.push_back(plane);
 
         Quadric* q1 = new Quadric(materials[1]);
-        //ClippedQuadric* q1 = new ClippedQuadric(materials[0]);
         q1->setQuadric(sphereQ);
-        q1->transform(mat4x4::scaling(vec3(.2,.2,.2)) * mat4x4::translation(vec3(0,0,0)));
+        q1->transform(mat4x4::scaling(vec3(.2,.2,.2)) * mat4x4::translation(vec3(0,0,-.3)));
         objects.push_back(q1);
 
 	}
@@ -652,49 +656,67 @@ public:
 			return vec3(0.5,0.8,0.9);
             //return vec3(0,0,0);
 
-        vec3 sum = vec3(0,0,0);
+        vec3 color = vec3(0,0,0);
         for (int i = 0; i < lightSources.size(); i++) {
             LightSource* l = lightSources[i];
-            sum = sum + hit.material->shade(hit.position, hit.normal, -ray.dir, 
+            color += hit.material->shade(hit.position, hit.normal, -ray.dir, 
                    l->getLightDirAt(hit.position), l->getPowerDensityAt(hit.position));
-            /*
             vec3 shadowOrigin = hit.position + hit.normal*epsilon;
             Ray shadowRay = Ray(shadowOrigin, l->getLightDirAt(hit.position));
             Hit rayHit = firstIntersect(shadowRay);
             if (rayHit.t != -1) {
                 return vec3(0,0,0);
             }
-            */
         }
+        // starting vectors
+        vec3 V = -ray.dir;
+        vec3 N = hit.normal;
+        // sign-- the product should be negative if entering the shape, 
+        // positive if leaving. If entering shape, you must subtract,
+        // if leaving you must add
+        float sign = V.dot(N) < 0 ? -1 : 1;
 
-        if ((hit.material != NULL) && (dynamic_cast<Metal*>(hit.material))) {
-            vec3 V = -ray.dir;
-            vec3 N = hit.normal;
+        if ( ( hit.material != NULL) && 
+             ( (dynamic_cast<Metal*>(hit.material ) ) or 
+               ( (dynamic_cast<Glass*>(hit.material)) and (sign==-1) ) ) ) {
+            // the length of the diagonal vector (parallel to normal)
             float diagonal = (2*N.dot(V));
+            // the ray direction
             vec3 raydir = ((N*diagonal) - V).normalize();
-            vec3 pos = hit.position + hit.normal*epsilon;
-            Ray refRay = Ray(pos, raydir);
-            sum = sum + hit.material->reflectance*trace(refRay, depth-1);
+            // add or subtract a very small amount, prevents repeat hits
+            vec3 pos = hit.position + N*epsilon;
+            // make the ray
+            Ray reflRay = Ray(pos, raydir);
+            // add the contribution
+            color += hit.material->reflectance*trace(reflRay, depth-1);
         }
 
         if ((hit.material != NULL) && (dynamic_cast<Glass*>(hit.material))) {
-            vec3 V = -ray.dir;
-            vec3 N = hit.normal;
             float mu = hit.material->mu;
-            vec3 N_perp = (N*(N.dot(V)) - V);
+            // perpendicular to normal vector
+            vec3 N_perp = (N*(N.dot(V)) - V).normalize();
+            // angles
             float cos_alpha = N.dot(V);
             float sin_alpha = sqrt(1 - pow(cos_alpha, 2));
             float sin_beta = sin_alpha / mu;
-            float cos_beta = sqrt(1 - pow(cos_alpha, 2));
-            vec3 raydir = (N_perp*sin_beta + -N*cos_beta).normalize();
-            float sign = V.dot(N) > 0 ? 1 : -1;
-            vec3 pos = hit.position + hit.normal*epsilon*sign;
-            Ray refRay = Ray(pos, raydir);
-            sum = sum + hit.material->refractance*trace(refRay, depth-1);
+            float cos_beta = sqrt(1 - pow(sin_beta, 2));
 
+            printf("%f\n", sign);
+
+            // ray direction
+            vec3 raydir = (N_perp*sin_beta + N*cos_beta).normalize();
+            // add or subtract a very small amount
+            vec3 pos = hit.position + N*epsilon*sign;
+
+            //pos.print();
+           
+            // make the ray
+            Ray refrRay = Ray(pos, raydir);
+            // add the contribution
+            color += hit.material->refractance*trace(refrRay, depth-1);
         }
 
-        return sum;
+        return color;
 	}
 };
 
