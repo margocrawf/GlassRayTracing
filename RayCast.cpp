@@ -594,7 +594,7 @@ public:
         */
         Quadric* r = new Quadric(materials[2]);
         r->setQuadric(sphereQ);
-        r->transform(mat4x4::scaling(vec3(.4,.4,.4)) * mat4x4::translation(vec3(-.1,0,0.2)));
+        r->transform(mat4x4::scaling(vec3(.4,.4,.4)) * mat4x4::translation(vec3(-.4,0,0.2)));
         objects.push_back(r);
 
         /*
@@ -674,7 +674,7 @@ public:
         // sign-- the product should be negative if entering the shape, 
         // positive if leaving. If entering shape, you must subtract,
         // if leaving you must add
-        float sign = V.dot(N) > 0 ? -1 : 1;
+        float sign = V.dot(N) < 0 ? -1 : 1;
 
         if ( ( hit.material != NULL) && 
              ( (dynamic_cast<Metal*>(hit.material ) ) or 
@@ -692,7 +692,16 @@ public:
         }
 
         if ((hit.material != NULL) && (dynamic_cast<Glass*>(hit.material))) {
-            float mu = hit.material->mu;
+            float mu; // mu1/mu2, mu1 is one youre coming from, mu2 one youre entering
+            if (sign < 0) {
+                // entering
+                printf("hello?\n");
+                mu = 1.0/hit.material->mu;
+            } else {
+                // leaving
+                mu = hit.material->mu;
+                N = -N;
+            }
             // perpendicular to normal vector
             vec3 N_perp = (N*(N.dot(V)) - V).normalize();
             // angles
@@ -701,10 +710,18 @@ public:
             float sin_beta = sin_alpha / mu;
             float cos_beta = sqrt(1 - pow(sin_beta, 2));
 
-            printf("%f\n", sign);
+            //printf("%f\n", sign);
 
+            /*
             // ray direction
-            vec3 raydir = -(N_perp*sin_beta + N*cos_beta).normalize();
+            vec3 raydir = (N_perp*sin_beta + N*cos_beta).normalize();
+            */
+
+            if ( (1 - pow(mu,2)*sin_alpha) < 0 ) {
+                // total internal refraction, do not pass go do not collect $200
+               return color; 
+            }
+            vec3 raydir = (V*mu) + N*( (mu*N.dot(V)) - sqrt(1 - pow(mu, 2)*sin_alpha) );
             // add or subtract a very small amount
             vec3 pos = hit.position + N*epsilon*sign;
 
