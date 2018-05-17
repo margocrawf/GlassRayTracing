@@ -678,7 +678,7 @@ public:
 
         if ( ( hit.material != NULL) && 
              ( (dynamic_cast<Metal*>(hit.material ) ) or 
-               ( (dynamic_cast<Glass*>(hit.material)) and (sign==-1) ) ) ) {
+               ( (dynamic_cast<Glass*>(hit.material)) and (sign<0) ) ) ) {
             // the length of the diagonal vector (parallel to normal)
             float diagonal = (2*N.dot(V));
             // the ray direction
@@ -704,7 +704,7 @@ public:
             printf("%f\n", sign);
 
             // ray direction
-            vec3 raydir = (N_perp*sin_beta + N*cos_beta).normalize();
+            vec3 raydir = (N_perp*sin_beta + -N*cos_beta).normalize();
             // add or subtract a very small amount
             vec3 pos = hit.position + N*epsilon*sign;
 
