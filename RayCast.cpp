@@ -567,7 +567,7 @@ public:
 	Scene()
 	{
         lightSources.push_back(new DirectionalLight(vec3(.5,.5,.5), 
-                               vec3(0,2,0), vec3(0,2,0)));
+                               vec3(.3,1.5,.4), vec3(.3,1.5,.4)));
         //lightSources.push_back(new PointLight(vec3(10,10,10), 
         //                       vec3(0,0.2,0.35), vec3(0,0.2,0.35)));
 
@@ -575,6 +575,7 @@ public:
         materials.push_back(new Wood());
         materials.push_back(new Glass());
         materials.push_back(new Ball());
+        materials.push_back(new DiffuseMaterial(vec3(.7,.4,1)));
 
         /*
         mat4x4 s[4] = {section_0, section_1, section_2, section_3};
@@ -595,7 +596,7 @@ public:
         */
         Quadric* r = new Quadric(materials[2]);
         r->setQuadric(sphereQ);
-        r->transform(mat4x4::scaling(vec3(.4,.4,.4)) * mat4x4::translation(vec3(-.3,0,0.2)));
+        r->transform(mat4x4::scaling(vec3(.4,.4,.4)) * mat4x4::translation(vec3(0,0,1.1)));
         objects.push_back(r);
 
         /*
@@ -605,13 +606,19 @@ public:
         objects.push_back(q);
         */
 
-        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[0]);
+        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[4]);
         objects.push_back(plane);
 
         Quadric* q1 = new Quadric(materials[1]);
         q1->setQuadric(sphereQ);
-        q1->transform(mat4x4::scaling(vec3(.3,.3,.3)) * mat4x4::translation(vec3(0,0,-.5)));
+        q1->transform(mat4x4::scaling(vec3(.3,.3,.3)) * mat4x4::translation(vec3(-.3,.2,0)));
         objects.push_back(q1);
+
+        Quadric* ball = new Quadric(materials[3]);
+        ball->setQuadric(sphereQ);
+        ball->transform(mat4x4::scaling(vec3(.3,.3,.3)) * mat4x4::translation(vec3(.2,0,-.2)));
+        objects.push_back(ball);
+
 
 	}
 	~Scene()
@@ -644,7 +651,7 @@ public:
         return bestHit;
     }
 
-	vec3 trace(const Ray& ray, int depth=10)
+	vec3 trace(const Ray& ray, int depth=3)
 	{
         float epsilon = 0.01;
         if (depth == 0) {
@@ -676,10 +683,6 @@ public:
         vec3 V = ray.dir;
         V = -V.normalize();
         vec3 N = hit.normal;
-        // sign-- the product should be negative if entering the shape, 
-        // positive if leaving. If entering shape, you must subtract,
-        // if leaving you must add
-        //float sign = V.dot(N) < 0 ? -1 : 1;
 
         if ( ( hit.material != NULL) && 
               (dynamic_cast<Metal*>(hit.material ) ) ) {
@@ -695,11 +698,9 @@ public:
             color += hit.material->reflectance*trace(reflRay, depth-1);
         }
 
-
-        V = -V;
         if ((hit.material != NULL) && (dynamic_cast<Glass*>(hit.material))) {
             float mu; // mu1/mu2, mu1 is one youre coming from, mu2 one youre entering
-        if (V.dot(N) < 0) { // entering
+            if (V.dot(N) > 0) { // entering
                 mu = 1.0/hit.material->mu;
             } else {// leaving
                 mu = hit.material->mu;
@@ -718,9 +719,12 @@ public:
             float reflectance = Ro + (1-Ro)*(pow(1-cos_alpha, 5));
             float transmittance = 1 - reflectance;
 
+            float c1 = -N.dot(V);
+            float c2 = sqrt( 1 - pow(mu,2)*(1-pow(c1,2)));
             float diagonal = (2*N.dot(V));
             // reflective ray direction
-            vec3 reflDir = ((N*diagonal) - V).normalize();
+            //vec3 reflDir = ((N*diagonal) - V).normalize();
+            vec3 reflDir = V + (N*2*c1);
             vec3 reflPos = hit.position + N*epsilon;
             Ray reflRay = Ray(reflPos, reflDir);
             vec3 reflColor = trace(reflRay, depth-1);
@@ -732,10 +736,11 @@ public:
                return reflColor; 
             }
 
-            vec3 refrDir = ( (V*mu) + N*( (mu*N.dot(V)) - sqrt(1 - pow(mu, 2)*sin_alpha) ) );
+            //vec3 refrDir = ( (V*mu) + N*( (mu*N.dot(V)) - sqrt(1 - pow(mu, 2)*sin_alpha) ) );
 
             // refractive ray direction
             //vec3 refrDir = (N_perp*sin_beta + N*cos_beta).normalize();
+            vec3 refrDir = (V*mu) + N*(mu*c1 - c2);
             // add or subtract a very small amount
             vec3 refrPos = hit.position - N*epsilon;
             // make the ray
@@ -746,8 +751,11 @@ public:
             //printf("%f\n", sqrt(-1));
           
             //color += hit.material->refractance*refrColor;
-            color += refrColor*transmittance;
+            //color += refrColor*transmittance;
+            color = reflColor;
+
             if (depth < 10) {
+                // reflections get funky inside the shape
                 color = refrColor;
             }
         }
