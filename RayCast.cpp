@@ -606,7 +606,7 @@ public:
         objects.push_back(q);
         */
 
-        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[4]);
+        Plane* plane = new Plane(vec3(0,1,0), vec3(1,-0.8,1), materials[3]);
         objects.push_back(plane);
 
         Quadric* q1 = new Quadric(materials[1]);
@@ -618,6 +618,11 @@ public:
         ball->setQuadric(sphereQ);
         ball->transform(mat4x4::scaling(vec3(.3,.3,.3)) * mat4x4::translation(vec3(.2,0,-.2)));
         objects.push_back(ball);
+
+        Quadric* ball2 = new Quadric(materials[3]);
+        ball2->setQuadric(sphereQ);
+        ball2->transform(mat4x4::scaling(vec3(.3,.3,.3)) * mat4x4::translation(vec3(1,0,-.2)));
+        //objects.push_back(ball2);
 
 
 	}
@@ -651,7 +656,7 @@ public:
         return bestHit;
     }
 
-	vec3 trace(const Ray& ray, int depth=3)
+	vec3 trace(const Ray& ray, int depth=5)
 	{
         float epsilon = 0.01;
         if (depth == 0) {
@@ -660,9 +665,9 @@ public:
 
         Hit hit = firstIntersect(ray);
 
-		if(hit.t < 0)
+		if(hit.t < 0) {
 			return vec3(0.5,0.8,0.9);
-            //return vec3(0,0,0);
+        }
 
         vec3 color = vec3(0,0,0);
         for (int i = 0; i < lightSources.size(); i++) {
@@ -723,12 +728,12 @@ public:
             float c2 = sqrt( 1 - pow(mu,2)*(1-pow(c1,2)));
             float diagonal = (2*N.dot(V));
             // reflective ray direction
-            //vec3 reflDir = ((N*diagonal) - V).normalize();
-            vec3 reflDir = V + (N*2*c1);
+            vec3 reflDir = ((N*diagonal) - V).normalize();
+            //vec3 reflDir = V + (N*2*c1);
             vec3 reflPos = hit.position + N*epsilon;
             Ray reflRay = Ray(reflPos, reflDir);
             vec3 reflColor = trace(reflRay, depth-1);
-            color = reflColor*reflectance;
+            color += reflColor*reflectance;
 
             if ( 1 - pow(mu,2)*pow(sin_alpha,2) < 0 ) {
                 // total internal refraction, do not pass go do not collect $200
@@ -751,13 +756,8 @@ public:
             //printf("%f\n", sqrt(-1));
           
             //color += hit.material->refractance*refrColor;
-            //color += refrColor*transmittance;
-            color = reflColor;
-
-            if (depth < 10) {
-                // reflections get funky inside the shape
-                color = refrColor;
-            }
+            color += refrColor*transmittance;
+            //color = reflColor;
         }
 
         return color;

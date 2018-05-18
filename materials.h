@@ -37,7 +37,8 @@ public:
 		vec3 normal,
 		vec3 viewDir)
 	{
-		return color * std::max(normal.dot(viewDir), 0.0f); //multiply by dot product
+		//return color * std::max(normal.dot(viewDir), 0.0f); //multiply by dot product
+        return color;
 	}
 };
 
@@ -96,9 +97,11 @@ public:
 
 class SpecularMaterial: public Material
 {
+    /*
     vec3 ks; // diffuse light constant
     vec3 kd; // diffuse light constant
     int gamma;
+    */
 
 public:
     SpecularMaterial(vec3 color) : 
@@ -106,6 +109,20 @@ public:
         ks = vec3(0.5,0.5,0.5);
         kd = color;
         gamma = 6;
+    }
+
+    vec3 getColor(vec3 position, vec3 normal, vec3 viewDir) {
+        return kd;
+    }
+
+    vec3 shade(vec3 position, vec3 normal, vec3 viewDir,
+               vec3 lightDir, vec3 powerDensity) {
+        // L = powerDensity . k_s(halfway * n)
+        vec3 kdt = getColor(position, normal, viewDir);
+        vec3 kd_term = (powerDensity * ( kdt * (normal.dot(lightDir))));
+        vec3 halfway = (lightDir + viewDir).normalize();
+        vec3 ks_term = powerDensity * ( ks * pow((halfway.dot(normal)), gamma));
+        return kd_term + ks_term;
     }
 };
 
